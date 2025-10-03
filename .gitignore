@@ -1,2 +1,7 @@
-.env
-venv/
+code.ipynb
+backend/__pycache__
+backend/.venv
+backend/chroma_db
+backend/.env
+frontend/node_modules
+frontend/.env
