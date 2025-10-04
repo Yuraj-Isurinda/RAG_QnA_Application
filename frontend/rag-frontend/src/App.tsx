@@ -7,7 +7,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "";
 async function askBackend(
   question: string,
   history: string[],
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<{ answer: string }> {
   const res = await fetch(`${API_BASE}/ask`, {
     method: "POST",
@@ -41,8 +41,12 @@ async function getDocumentsDetail(): Promise<DocItem[]> {
   return data.documents as DocItem[];
 }
 
-async function deleteDocument(docId: string): Promise<{ success: boolean; message: string }> {
-  const res = await fetch(`${API_BASE}/documents/${docId}`, { method: "DELETE" });
+async function deleteDocument(
+  docId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/documents/${docId}`, {
+    method: "DELETE",
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || res.statusText);
@@ -50,10 +54,20 @@ async function deleteDocument(docId: string): Promise<{ success: boolean; messag
   return res.json();
 }
 
-async function uploadDocument(file: File): Promise<{ success: boolean; message: string; filename: string; doc_id: string }> {
+async function uploadDocument(
+  file: File
+): Promise<{
+  success: boolean;
+  message: string;
+  filename: string;
+  doc_id: string;
+}> {
   const formData = new FormData();
   formData.append("file", file);
-  const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: formData });
+  const res = await fetch(`${API_BASE}/upload`, {
+    method: "POST",
+    body: formData,
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || res.statusText);
@@ -76,7 +90,9 @@ export default function App() {
   const history = useMemo(() => messages.map((m) => m.content), [messages]);
 
   useEffect(() => {
-    (document.getElementById("user-input") as HTMLTextAreaElement | null)?.focus();
+    (
+      document.getElementById("user-input") as HTMLTextAreaElement | null
+    )?.focus();
     loadDocuments();
   }, []);
 
@@ -96,30 +112,40 @@ export default function App() {
   }
 
   async function handleSend(e?: React.FormEvent) {
-    e?.preventDefault();
-    const question = input.trim();
-    if (!question || loading) return;
+    if (e) e.preventDefault();
+    if (!input.trim() || loading) return;
 
-    setError(null);
-    setLoading(true);
-    setMessages((prev) => [...prev, { role: "user", content: question }]);
+    const userMessage = input.trim();
     setInput("");
+    setError(null);
+    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setLoading(true);
 
-    abortRef.current = new AbortController();
     try {
-      const { answer } = await askBackend(question, history, abortRef.current.signal);
-      setMessages((prev) => [...prev, { role: "assistant", content: answer }]);
-    } catch (err: any) {
-      const is429 = /HTTP\s+429/.test(err?.message || "");
-      const retryAfter = err?.retryAfter ?? undefined;
-      setError(
-        is429
-          ? `Rate limit hit${retryAfter ? `; retry after ~${retryAfter}s` : ""}. Try again shortly.`
-          : err?.message || "Something went wrong"
+      abortRef.current = new AbortController();
+      const result = await askBackend(
+        userMessage,
+        history,
+        abortRef.current.signal
       );
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: result.answer },
+      ]);
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        setError(err.message || "Something went wrong");
+      }
     } finally {
       setLoading(false);
       abortRef.current = null;
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
   }
 
@@ -164,11 +190,12 @@ export default function App() {
       <header className="px-6 py-4 border-b bg-white">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-6">
-            <h1 className="text-xl font-semibold tracking-tight">ContextLens</h1>
+            <h1 className="text-xl font-semibold tracking-tight">
+              ContextLens
+            </h1>
           </div>
 
           <div className="flex items-center gap-3">
-
             <input
               ref={fileInputRef}
               type="file"
@@ -184,8 +211,6 @@ export default function App() {
             >
               {uploading ? "Uploading…" : "Upload PDF"}
             </button>
-
-            
           </div>
         </div>
       </header>
@@ -193,16 +218,22 @@ export default function App() {
       {/* Main */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
         <div className="rounded-2xl bg-white shadow-sm border p-4 sm:p-6 flex flex-col h-[75vh]">
-
           {/* Documents panel */}
           {documents.length > 0 && (
             <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Documents</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Documents
+              </h3>
               <ul className="text-sm text-gray-700 divide-y rounded-lg border">
                 {documents.map((d) => (
-                  <li key={d.doc_id} className="flex items-center justify-between px-3 py-2">
+                  <li
+                    key={d.doc_id}
+                    className="flex items-center justify-between px-3 py-2"
+                  >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="truncate" title={d.path}>{d.display_name}</span>
+                      <span className="truncate" title={d.path}>
+                        {d.display_name}
+                      </span>
                       {d.num_chunks === 0 && (
                         <span
                           title="No text extracted; this may be a scanned PDF. Consider OCR."
@@ -219,7 +250,12 @@ export default function App() {
                       title="Delete"
                     >
                       {/* Trash icon */}
-                      <img src="/trash.svg" alt="Delete" className="object-contain" style={{ width: "30px", height: "30px" }} />
+                      <img
+                        src="/trash.svg"
+                        alt="Delete"
+                        className="object-contain"
+                        style={{ width: "30px", height: "30px" }}
+                      />
                     </button>
                   </li>
                 ))}
@@ -228,17 +264,27 @@ export default function App() {
           )}
 
           {/* Chat messages */}
-          <div className="flex-1 overflow-y-auto pr-2 space-y-4" id="chat-scroll">
+          <div
+            className="flex-1 overflow-y-auto pr-2 space-y-4"
+            id="chat-scroll"
+          >
             {messages.length === 0 && (
               <div className="text-gray-500 text-sm">
                 Upload a PDF, then ask questions.
               </div>
             )}
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                key={i}
+                className={`flex ${
+                  m.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
                 <div
                   className={`${
-                    m.role === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"
+                    m.role === "user"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-900"
                   } max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap`}
                 >
                   {m.content}
@@ -255,7 +301,7 @@ export default function App() {
           </div>
 
           {/* Composer */}
-          <form onSubmit={handleSend} className="mt-4 flex items-end gap-2">
+          {/* <form onSubmit={handleSend} className="mt-4 flex items-end gap-2">
             <textarea
               id="user-input"
               className="flex-1 resize-none rounded-2xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -284,7 +330,50 @@ export default function App() {
                 Stop
               </button>
             </div>
+          </form> */}
+
+          <form onSubmit={handleSend} className="flex gap-2">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                documents.length > 0
+                  ? "Ask a question about your documents... (Enter to send, Shift+Enter for new line)"
+                  : "Upload a document first to start chatting"
+              }
+              disabled={loading || documents.length === 0}
+              rows={1}
+              className="flex-1 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500 disabled:bg-gray-100 resize-none overflow-hidden"
+              style={{
+                minHeight: "2.5rem",
+                maxHeight: "8rem",
+              }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = "auto";
+                target.style.height = Math.min(target.scrollHeight, 128) + "px";
+              }}
+            />
+            {loading ? (
+              <button
+                type="button"
+                onClick={stopRequest}
+                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
+              >
+                Stop
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim() || documents.length === 0}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors disabled:bg-gray-400"
+              >
+                Send
+              </button>
+            )}
           </form>
+
           <span className="text-s text-gray-500">Docs: {documents.length}</span>
           {error && <div className="mt-3 text-xs text-red-600">{error}</div>}
         </div>
